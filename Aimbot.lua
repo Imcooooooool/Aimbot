@@ -6,6 +6,7 @@ local ShowNotifications = true
 local HoldKey = Enum.KeyCode.V
 local ToggleKey = Enum.KeyCode.B
 local ESP = true
+local TriggerDistance = 100
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
@@ -35,8 +36,7 @@ local function Notify(Message)
 end
 
 local Callback = Instance.new("BindableFunction")
-function Callback.OnInvoke(Button)
-end
+function Callback.OnInvoke(Button) end
 Notify("Hold = V, Toggle = B")
 Callback:Destroy()
 
@@ -47,20 +47,15 @@ end
 local function CreateESP(Model)
 	if not ESP then return end
 	if Model:FindFirstChildWhichIsA("SelectionBox") then return end
-
 	local Hitbox = Instance.new("SelectionBox")
 	Hitbox.Name = GenerateString()
 	Hitbox.LineThickness = 0.05
 	Hitbox.Adornee = Model
 	Hitbox.Parent = Model
-
 	spawn(function()
-		while Hitbox.Parent and Hitbox:IsDescendantOf(game) do
+		while Hitbox.Parent and Hitbox:IsDescendantOf(game) and Target == Model do
 			for i = 1, 230 do
-				if not Hitbox.Parent or not Hitbox:IsDescendantOf(game) then
-					return
-				end
-				if Target ~= Model then
+				if not Hitbox.Parent or not Hitbox:IsDescendantOf(game) or Target ~= Model then
 					pcall(function() Debris:AddItem(Hitbox, 0) end)
 					return
 				end
@@ -79,8 +74,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 			HoldAiming = true
 			Target = nil
 			Notify("[Aiming Mode]: HOLD ON")
-		end
-		if input.KeyCode == ToggleKey then
+		elseif input.KeyCode == ToggleKey then
 			ToggleAiming = not ToggleAiming
 			Target = nil
 			if ToggleAiming then
@@ -93,12 +87,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Keyboard then
-		if input.KeyCode == HoldKey then
-			HoldAiming = false
-			Target = nil
-			Notify("[Aiming Mode]: HOLD OFF")
-		end
+	if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == HoldKey then
+		HoldAiming = false
+		Target = nil
+		Notify("[Aiming Mode]: HOLD OFF")
 	end
 end)
 
@@ -106,8 +98,8 @@ RunService.RenderStepped:Connect(function()
 	pcall(function()
 		Aiming = ToggleAiming or HoldAiming
 		if not Aiming then return end
-
 		if not Target then
+			local closestDist = math.huge
 			for _, model in ipairs(workspace:GetChildren()) do
 				local humanoid = model:FindFirstChildWhichIsA("Humanoid")
 				if humanoid and humanoid.Health > 0 and model ~= Player.Character then
@@ -118,18 +110,19 @@ RunService.RenderStepped:Connect(function()
 							local mouseVec = Vector2.new(Mouse.X, Mouse.Y)
 							local partVec = Vector2.new(viewportPoint.X, viewportPoint.Y)
 							local mag = (mouseVec - partVec).Magnitude
-							if mag <= TriggerDistance then
+							if mag <= TriggerDistance and mag < closestDist then
+								closestDist = mag
 								Target = model
-								CreateESP(Target)
-								Notify(string.format("[Target]: %s", model.Name))
-								break
 							end
 						end
 					end
 				end
 			end
+			if Target then
+				CreateESP(Target)
+				Notify("[Target]: "..Target.Name)
+			end
 		end
-
 		if Target then
 			local humanoid = Target:FindFirstChildWhichIsA("Humanoid")
 			local root = Target:FindFirstChild("HumanoidRootPart") or Target.PrimaryPart
