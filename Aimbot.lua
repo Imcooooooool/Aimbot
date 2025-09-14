@@ -63,3 +63,81 @@ local function CreateESP(Model)
 				if Target ~= Model then
 					pcall(function() Debris:AddItem(Hitbox, 0) end)
 					return
+				end
+				Hitbox.Name = GenerateString()
+				Hitbox.Color3 = Color3.fromHSV(i / 230, 1, 1)
+				task.wait()
+			end
+		end
+	end)
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		if input.KeyCode == HoldKey then
+			HoldAiming = true
+			Target = nil
+			Notify("[Aiming Mode]: HOLD ON")
+		end
+		if input.KeyCode == ToggleKey then
+			ToggleAiming = not ToggleAiming
+			Target = nil
+			if ToggleAiming then
+				Notify("[Aiming Mode]: TOGGLE ON")
+			else
+				Notify("[Aiming Mode]: TOGGLE OFF")
+			end
+		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		if input.KeyCode == HoldKey then
+			HoldAiming = false
+			Target = nil
+			Notify("[Aiming Mode]: HOLD OFF")
+		end
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	pcall(function()
+		Aiming = ToggleAiming or HoldAiming
+		if not Aiming then return end
+
+		if not Target then
+			for _, model in ipairs(workspace:GetChildren()) do
+				local humanoid = model:FindFirstChildWhichIsA("Humanoid")
+				if humanoid and humanoid.Health > 0 and model ~= Player.Character then
+					local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+					if root then
+						local viewportPoint, onScreen = Camera:WorldToViewportPoint(root.Position)
+						if onScreen then
+							local mouseVec = Vector2.new(Mouse.X, Mouse.Y)
+							local partVec = Vector2.new(viewportPoint.X, viewportPoint.Y)
+							local mag = (mouseVec - partVec).Magnitude
+							if mag <= TriggerDistance then
+								Target = model
+								CreateESP(Target)
+								Notify(string.format("[Target]: %s", model.Name))
+								break
+							end
+						end
+					end
+				end
+			end
+		end
+
+		if Target then
+			local humanoid = Target:FindFirstChildWhichIsA("Humanoid")
+			local root = Target:FindFirstChild("HumanoidRootPart") or Target.PrimaryPart
+			if humanoid and humanoid.Health > 0 and root then
+				Camera.CFrame = CFrame.new(Camera.CFrame.Position, root.Position)
+			else
+				Target = nil
+			end
+		end
+	end)
+end)
